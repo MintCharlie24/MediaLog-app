@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14141c" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>MediaLog</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="banner" class="banner" hidden></div>
+<header class="topbar"><h1 id="topTitle">MediaLog</h1><button id="refreshBtn" class="icon" aria-label="Actualizar">⟳</button></header>
+<main id="view"></main>
+<nav class="tabbar" id="tabbar">
+  <button data-tab="home"><span>🏠</span><small data-t="home">Inicio</small></button>
+  <button data-tab="library"><span>📚</span><small data-t="library">Biblioteca</small></button>
+  <button data-tab="stats"><span>📊</span><small data-t="stats">Estadísticas</small></button>
+  <button data-tab="settings"><span>⚙️</span><small data-t="settings">Ajustes</small></button>
+</nav>
+<div id="sheet" class="sheet" hidden><div class="sheet-card"><button id="sheetClose" class="sheet-close" aria-label="Cerrar">✕</button><div id="sheetBody"></div></div></div>
+<script src="vendor/chart.umd.js"></script>
+<script src="core.js"></script>
+<script src="views.js"></script>
+<script src="stats.js"></script>
+</body>
+</html>

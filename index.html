@@ -20,10 +20,14 @@
   <button data-tab="stats"><span>📊</span><small data-t="stats">Estadísticas</small></button>
   <button data-tab="settings"><span>⚙️</span><small data-t="settings">Ajustes</small></button>
 </nav>
+<button id="fabAdd" class="fab" hidden aria-label="Añadir">＋</button>
+<div id="toast" class="toast"></div>
 <div id="sheet" class="sheet" hidden><div class="sheet-card"><button id="sheetClose" class="sheet-close" aria-label="Cerrar">✕</button><div id="sheetBody"></div></div></div>
 <script src="vendor/chart.umd.js"></script>
 <script src="core.js"></script>
 <script src="views.js"></script>
+<script src="sync.js"></script>
+<script src="edit.js"></script>
 <script src="stats.js"></script>
 </body>
 </html>

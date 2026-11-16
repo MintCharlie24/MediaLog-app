@@ -18,6 +18,7 @@ function rankedList(title, rows) {
 }
 
 function renderStats() {
+  if (typeof Chart === 'undefined') { /* las tarjetas y listas se muestran igualmente */ }
   const cat = S.statsCat && DATA.categorias.includes(S.statsCat) ? S.statsCat : null;
   const list = records(cat);
   const rated = list.filter((r) => r.valoracion != null);
@@ -48,12 +49,12 @@ function renderStats() {
 
   // Criterios (solo con una categoría elegida, porque cada categoría tiene los suyos)
   let champs = [];
-  if (cat) {
+  if (cat) try {
     const names = criteriaNames(DATA, cat), withC = list.filter((r) => r.criterios && r.criterios.some((v) => v != null));
     const avgs = names.map((_, i) => { const v = withC.map((r) => r.criterios[i]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; });
     if (withC.length && names.length >= 3) { html += chartCard('cRadar', t('radar')); charts.push(() => mkChart('cRadar', { type: 'radar', data: { labels: names, datasets: [{ data: avgs.map((v) => (v == null ? 0 : Math.round(v * 10) / 10)), backgroundColor: 'rgba(124,92,255,.25)', borderColor: PALETTE[0], pointBackgroundColor: PALETTE[0] }] }, options: { scales: { r: { min: 0, max: 10, ticks: { display: false } } } } })); }
     champs = names.map((n, i) => { const b = withC.filter((r) => r.criterios[i] != null).sort((a, c) => c.criterios[i] - a.criterios[i])[0]; return b ? { name: n, sub: b.titulo, value: fmt1(b.criterios[i]) } : null; }).filter(Boolean);
-  }
+  } catch (e) { LAST_ERR = 'Criterios: ' + e.message; }
   html += rankedList(t('best'), rated.slice().sort((a, b) => b.valoracion - a.valoracion).slice(0, 10).map((r) => ({ name: r.titulo, value: fmt1(r.valoracion), cover: r.portada || '' })));
   html += rankedList(t('mostHours'), withHours.slice().sort((a, b) => b.horas - a.horas).slice(0, 10).map((r) => ({ name: r.titulo, value: fmtH(r.horas), cover: r.portada || '' })));
   if (champs.length) html += rankedList(t('champions'), champs);
@@ -62,6 +63,9 @@ function renderStats() {
 
   $('#view').innerHTML = html;
   $$('.chip[data-cat]').forEach((b) => { b.onclick = () => { S.statsCat = b.dataset.cat || null; renderStats(); }; });
-  charts.forEach((f) => f());
+  const errs = [];
+  if (typeof Chart === 'undefined') errs.push('No se ha cargado la librería de gráficos. Comprueba que la carpeta vendor con chart.umd.js está subida al repositorio.');
+  else charts.forEach((f, i) => { try { f(); } catch (e) { errs.push('Gráfico ' + (i + 1) + ': ' + (e && e.message)); } });
+  if (errs.length) { $('#view').insertAdjacentHTML('beforeend', `<div class="chart-card"><h3>⚠️</h3><div class="small">${errs.map(esc).join('<br>')}</div></div>`); LAST_ERR = errs[0]; }
   observeCovers($('#view'));
 }

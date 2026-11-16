@@ -2,7 +2,7 @@
 // MediaLog móvil — pantallas: inicio, biblioteca, detalle y ajustes.
 let DATA = null;
 const S = { tab: 'home', cat: null, q: '', estado: '', year: '', sort: 'recent', grid: false, shown: 60, statsCat: null };
-const records = (cat) => (DATA ? DATA.log.filter((r) => !cat || r.categoria === cat) : []);
+const records = (cat) => (DATA ? DATA.log.filter((r) => !cat || r.categoria === cat).map(normRec) : []);
 const stLabel = (s) => t(s) || s;
 const thumb = (name, cls = 'thumb', ph = '🎞️') => `<div class="${cls}" ${name ? `data-cover="${esc(name)}"` : ''}>${ph}</div>`;
 
@@ -15,8 +15,9 @@ function go(tab) {
   $$('#tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   $('#topTitle').textContent = { home: 'MediaLog', library: t('library'), stats: t('stats'), settings: t('settings') }[tab];
   const v = $('#view'); v.scrollTop = 0; window.scrollTo(0, 0);
+  $('#fabAdd').hidden = tab !== 'library' || !DATA;
   if (!DATA && tab !== 'settings') { v.innerHTML = noData(); const g = $('#goSettings'); if (g) g.onclick = () => go('settings'); return; }
-  ({ home: renderHome, library: renderLibrary, stats: renderStats, settings: renderSettings })[tab]();
+  try { ({ home: renderHome, library: renderLibrary, stats: renderStats, settings: renderSettings })[tab](); } catch (e) { reportError(tab, e); }
 }
 
 // ---------------- Inicio ----------------
@@ -96,11 +97,13 @@ function renderLibList() {
 // ---------------- Detalle ----------------
 function kv(k, v) { return v == null || v === '' ? '' : `<div><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`; }
 function openDetail(id) {
-  const r = DATA.log.find((x) => x.id === id); if (!r) return;
+  const orig = DATA.log.find((x) => x.id === id); if (!orig) return;
+  const r = normRec(orig);
   const names = criteriaNames(DATA, r.categoria);
   const crit = (r.criterios || []).map((v, i) => (v == null || !names[i] ? '' : `<div class="crit"><span>${esc(names[i])}</span><div class="bar"><i style="width:${Math.min(100, v * 10)}%"></i></div><b>${fmt1(v)}</b></div>`)).join('');
   const chars = (r.personajesLista || []);
   $('#sheetBody').innerHTML = `<div class="hero">${thumb(r.portada, 'cover')}<div><h3>${esc(r.titulo)}</h3>
+      <button class="chip" id="editBtn" style="margin-bottom:6px">✏️ ${t('edit')}</button>
       <div class="${stClass(r.estado)}">${esc(stLabel(r.estado))}</div>
       ${r.valoracion != null ? `<div class="rate ${rateClass(r.valoracion)}" style="text-align:left;font-size:30px">${fmt1(r.valoracion)}</div>` : ''}
       ${r.volveria ? '<div class="muted small">♻</div>' : ''}</div></div>
@@ -112,8 +115,9 @@ function openDetail(id) {
     ${r.notas ? `<h2>${t('notes')}</h2><div style="white-space:pre-wrap">${esc(r.notas)}</div>` : ''}`;
   $('#sheet').hidden = false; $('#sheet .sheet-card').scrollTop = 0;
   observeCovers($('#sheetBody'));
+  $('#editBtn').onclick = () => openEditor(id);
 }
-function closeSheet() { $('#sheet').hidden = true; }
+function closeSheet() { $('#sheet').hidden = true; $('#sheet .sheet-card').classList.remove('editing'); E = null; }
 
 // ---------------- Ajustes ----------------
 async function renderSettings() {
@@ -126,7 +130,7 @@ async function renderSettings() {
     <button class="btn" id="sSave">${t('save')}</button>
     <label>${t('language')}</label><select id="sLang"><option value="es">Español</option><option value="en">English</option></select>
     <label>${t('theme')}</label><select id="sTheme"><option value="dark">${t('dark')}</option><option value="light">${t('light')}</option></select>
-    <div class="status">${t('lastSync')}: ${meta.at ? new Date(meta.at).toLocaleString(LANG === 'en' ? 'en-GB' : 'es-ES') : '—'}<br>${DATA ? t('loadedN', DATA.log.length) + ' · ' : ''}${n} ${t('cached')}<br>${t('version')} ${VERSION}</div>
+    <div class="status">${t('lastSync')}: ${meta.at ? new Date(meta.at).toLocaleString(LANG === 'en' ? 'en-GB' : 'es-ES') : '—'}<br>${DATA ? t('loadedN', DATA.log.length) + ' · ' : ''}${n} ${t('cached')}<br>${t('version')} ${VERSION}<br>Chart.js: ${typeof Chart !== 'undefined' ? 'OK' : 'NO'}${LAST_ERR ? '<br>' + esc(LAST_ERR) : ''}</div>
     <button class="btn ghost" id="sClear">${t('clearCache')}</button></div>`;
   $('#sLang').value = c.lang; $('#sTheme').value = c.theme;
   $('#sSave').onclick = () => { setCfg({ user: $('#sUser').value.trim(), repo: $('#sRepo').value.trim(), token: $('#sToken').value.trim() }); refresh(true, true); };
@@ -138,7 +142,9 @@ async function renderSettings() {
 // ---------------- Descarga de datos ----------------
 let refreshing = false;
 async function refresh(force, goHome) {
-  if (refreshing) return; refreshing = true;
+  if (refreshing) return;
+  if (getCfg().token && (await getPending()).dirty) { await syncNow(true); return; }
+  refreshing = true;
   $('#refreshBtn').classList.add('spin');
   try {
     setBanner(DATA ? '' : t('loading'));
@@ -161,12 +167,14 @@ async function boot() {
   $$('#tabbar button').forEach((b) => { b.onclick = () => go(b.dataset.tab); });
   $('#refreshBtn').onclick = () => refresh(true);
   $('#sheetClose').onclick = closeSheet;
+  $('#fabAdd').onclick = () => openEditor(null);
+  updateDirtyDot((await getPending()).dirty);
   $('#sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
   window.addEventListener('popstate', closeSheet);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
   DATA = (await idb.get('data')) || null;
   go(DATA ? 'home' : 'settings');
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-  if (getCfg().token) refresh(false);
+  if (getCfg().token) { if ((await getPending()).dirty) scheduleSync(1500); else refresh(false); }
 }
 document.addEventListener('DOMContentLoaded', boot);

@@ -1,6 +1,6 @@
 'use strict';
 // MediaLog móvil — núcleo: ajustes, almacenamiento local, acceso a GitHub, portadas e idioma.
-const VERSION = '1.19.0';
+const VERSION = '1.19.1';
 let LAST_ERR = '';
 function reportError(where, e) { LAST_ERR = `${where}: ${e && e.message ? e.message : e}`; console.error(LAST_ERR, e); const b = document.getElementById('banner'); if (b) { b.hidden = false; b.className = 'banner error'; b.textContent = LAST_ERR; } }
 window.addEventListener('error', (e) => reportError('Error', e.error || e.message));
